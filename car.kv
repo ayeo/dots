@@ -1,19 +1,19 @@
 #:kivy 1.0.9
-# ref: https://kivy.org/docs/tutorials/pong.html
+
 
 <Car>:
-    size: 35, 20
+    size: 20, 10
     canvas:
-        PushMatrix
         Rotate:
             angle: self.angle
             origin: self.center
         Rectangle:
             pos: self.pos
             size: self.size
-        PopMatrix
+
+
 <Game>:
-    car: game_car
+    car: car_id
     Car:
-        id: game_car
-        center: self.parent.center
+        id: car_id
+        center: root.center
