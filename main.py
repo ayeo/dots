@@ -8,13 +8,13 @@ from pygame.math import Vector2
 FPS = 60
 SIZE = 500
 MAX_MOVES = 1500
-START = (30, 30)
-GOAL = (450, 450)
+START = (250, 50)
+GOAL = (250, 450)
 
 pygame.init()
 pygame.mixer.init()
 screen = pygame.display.set_mode((SIZE, SIZE))
-pygame.display.set_caption("Karaluch")
+pygame.display.set_caption("Dots Swarm Invasion")
 clock = pygame.time.Clock()
 
 class Dot(pygame.sprite.Sprite):
@@ -29,9 +29,9 @@ class Dot(pygame.sprite.Sprite):
         self.acc = Vector2(0.0, 0.0)
         self.moves = moves.copy()
 
-        self.image = pygame.Surface((2, 2), pygame.SRCALPHA)
+        self.image = pygame.Surface((4, 4), pygame.SRCALPHA)
         if is_best:
-            self.image = pygame.Surface((5, 5), pygame.SRCALPHA)
+            self.image = pygame.Surface((7, 7), pygame.SRCALPHA)
         self.org_image = self.image
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
@@ -44,8 +44,8 @@ class Dot(pygame.sprite.Sprite):
         acc = self.moves[self.step]
         self.acc += acc
         self.vel += self.acc
-        if (self.vel.length() > 5):
-            self.vel.scale_to_length(5)
+        if (self.vel.length() > 2):
+            self.vel.scale_to_length(2)
         self.pos += self.vel
         self.step += 1
 
@@ -70,11 +70,11 @@ class Dot(pygame.sprite.Sprite):
             self.done = True
             self.dead = True
 
-        if self.pos.x >  100 and self.pos.x < 400  and \
+        if self.pos.x >  0 and self.pos.x < 300  and \
             self.pos.y > 150 and self.pos.y < 170:
             self.dead = True
 
-        if self.pos.x > 100 and self.pos.x < 400  and \
+        if self.pos.x > 200 and self.pos.x < 500  and \
             self.pos.y > 300 and self.pos.y < 320:
             self.dead = True
 
@@ -103,16 +103,16 @@ class Dot(pygame.sprite.Sprite):
     def clone(self, is_best=False):
         return Dot(self.moves, is_best)
 
-    def mutate(self):
-        factor = 0.01
+    def mutate(self, steps=3):
         clone = self.clone()
-        for i in range(len(self.moves)):
-            if random.random() < factor:
-                r = random.randrange(0, 360)
-                v = Vector2(0.01, 0)
-                v = v.rotate(r)
-                # v = v.normalize()
-                clone.moves[i] = v
+        while steps >= 0:
+            r = random.randrange(0, 360)
+            v = Vector2(1, 0)
+            v = v.rotate(r)
+            v = v.normalize()
+            i = random.randint(0, len(clone.moves)-1)
+            clone.moves[i] = v
+            steps -= 1
 
         return clone
 
@@ -120,15 +120,15 @@ class Dot(pygame.sprite.Sprite):
 class Population(pygame.sprite.Group):
     def __init__(self, size):
         self.dots = []
-        self.best = MAX_MOVES * 2
+        self.best = MAX_MOVES
         pygame.sprite.Group.__init__(self)
         for i in range(size):
             moves = []
             for a in range(1000):
                 r = random.randrange(0, 360)
-                v = Vector2(0.01, 0)
+                v = Vector2(1, 0)
                 v = v.rotate(r)
-                # v = v.normalize()
+                v = v.normalize()
                 moves.append(v)
             dot = Dot(moves)
             self.dots.append(dot)
@@ -166,25 +166,26 @@ class Population(pygame.sprite.Group):
         for i in range(len(self.dots)):
             runningSum += self.dots[i].fitness()
             if runningSum > rand:
-                return self.dots[i];
+                return self.dots[i]
 
     def mutate(self):
         elite = sorted(self.dots, key=lambda x: -1 * x.fitness())
-        elite = elite[:400]
+        elite = elite[:200]
         new_population = []
-        new_population.append(elite[0].clone(True))  # the best
-
         for i in range(999):
             new_dot = np.random.choice(elite, p=self.build_weights(elite))
-            new_dot = new_dot.mutate()
+            if new_dot.done:
+                new_dot = new_dot.mutate(3)
+            else:
+                new_dot = new_dot.mutate(15)
             new_population.append(new_dot)
-
+        new_population.append(elite[0].clone(True))  # the best
         self.empty()
         self.dots = new_population
         for dot in self.dots:
             self.add(dot)
 
-population = Population(500)
+population = Population(1000)
 
 running = True
 while running:
@@ -196,10 +197,10 @@ while running:
     population.move()
     population.update()
     screen.fill((255, 255, 255))
-    pygame.draw.circle(screen, (255,255,0), (450, 450), 10)
-    pygame.draw.circle(screen, (0,0,255), (30, 30), 10)
-    pygame.draw.rect(screen, (222,222,222), (100, 150, 300 ,20))
-    pygame.draw.rect(screen, (222,222,222), (100, 300, 300, 20))
+    pygame.draw.rect(screen, (100,100,100), (GOAL[0]-10, GOAL[1]-10, 20, 20))
+    pygame.draw.rect(screen, (100,100,100), (START[0]-10, START[1]-10, 20, 20))
+    pygame.draw.rect(screen, (222,222,222), (0, 150, 300 ,20))
+    pygame.draw.rect(screen, (222,222,222), (200, 300, 300, 20))
     population.draw(screen)
     pygame.display.flip()
     #pygame.time.delay(100)
