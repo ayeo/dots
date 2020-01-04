@@ -18,17 +18,20 @@ pygame.display.set_caption("Karaluch")
 clock = pygame.time.Clock()
 
 class Dot(pygame.sprite.Sprite):
-    def __init__(self, moves):
+    def __init__(self, moves, is_best=False):
         pygame.sprite.Sprite.__init__(self)
         self.step = 0
         self.dead = False
+        self.is_best = is_best
         self.done = False
         self.pos = Vector2(START[0], START[1])
         self.vel = Vector2(0.0, 0.0)
         self.acc = Vector2(0.0, 0.0)
         self.moves = moves.copy()
 
-        self.image = pygame.Surface((4, 4), pygame.SRCALPHA)
+        self.image = pygame.Surface((2, 2), pygame.SRCALPHA)
+        if is_best:
+            self.image = pygame.Surface((5, 5), pygame.SRCALPHA)
         self.org_image = self.image
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
@@ -41,14 +44,14 @@ class Dot(pygame.sprite.Sprite):
         acc = self.moves[self.step]
         self.acc += acc
         self.vel += self.acc
-        if (self.vel.length() > 2):
-            self.vel.scale_to_length(2)
+        if (self.vel.length() > 5):
+            self.vel.scale_to_length(5)
         self.pos += self.vel
         self.step += 1
 
-        # if self.step > best:
-        #     self.dead = True
-        #     self.vel = Vector2(0, 0)
+        if self.step > best + 20:
+            self.dead = True
+            self.vel = Vector2(0, 0)
 
         if (self.step >= MAX_MOVES):
             self.dead = True
@@ -69,45 +72,52 @@ class Dot(pygame.sprite.Sprite):
 
         #(0, 120, 300, 20))
         if self.pos.x >  0 and self.pos.x < 300  and \
-            self.pos.y > 120 and self.pos.y < 150:
+            self.pos.y > 120 and self.pos.y < 140:
             self.dead = True
 
-        #(300, 250, 200, 20))
-        if self.pos.x > 300 and self.pos.x < 500  and \
+        #(200, 250, 300, 20))
+        if self.pos.x > 200 and self.pos.x < 500  and \
             self.pos.y > 250 and self.pos.y < 270:
             self.dead = True
 
     def update(self, *args):
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        if self.dead:
-            self.image.fill((255,0,0))
+        if self.is_best:
+            self.image.fill((0,255,0))
+        elif self.dead:
+            self.image.fill((150,150,150))
         else:
             self.image.fill((0,0,0))
 
     def distance(self):
-        a = math.pow(self.pos.x - GOAL[0], 2)
-        b = math.pow(self.pos.y - GOAL[1], 2)
+        a = math.pow(self.pos.x-GOAL[0],2)
+        b = math.pow(self.pos.y-GOAL[1],2)
         return math.sqrt(a + b)
 
 
     def fitness(self):
         if self.done:
-            return 1 + (1.0 / (self.step * self.step)) * 10000
+            return 1.0 / 16.0 + 10000.0 / (float)(self.step * self.step)
         else:
-            return (1 / (self.distance() * self.distance())) * 100
+            return 1.0 / (self.distance() * self.distance())
 
-    def clone(self):
-        return Dot(self.moves)
+    def clone(self, is_best=False):
+        return Dot(self.moves, is_best)
 
     def mutate(self):
         factor = 0.01
+
+        clone = self.clone()
         for i in range(len(self.moves)):
             if random.random() < factor:
                 r = random.randrange(0, 360)
-                v = Vector2(2, 0)
+                v = Vector2(5, 0)
                 v = v.rotate(r)
-                self.moves[i] = v
+                v = v.normalize()
+                clone.moves[i] = v
+
+        return clone
 
 
 class Population(pygame.sprite.Group):
@@ -119,8 +129,9 @@ class Population(pygame.sprite.Group):
             moves = []
             for a in range(1000):
                 r = random.randrange(0, 360)
-                v = Vector2(2, 0)
+                v = Vector2(5, 0)
                 v = v.rotate(r)
+                v = v.normalize()
                 moves.append(v)
             dot = Dot(moves)
             self.dots.append(dot)
@@ -145,27 +156,40 @@ class Population(pygame.sprite.Group):
         weights = [float(i)/sum(weights) for i in weights]
         return weights
 
+    def total_fitness(self):
+        sum = 0
+        for dot in self.dots:
+            sum += dot.fitness()
+        return sum
+
+    def select_parent(self, sum):
+        rand = random.uniform(0, sum)
+        runningSum = 0
+        for i in range(len(self.dots)):
+            runningSum += self.dots[i].fitness()
+            if runningSum > rand:
+                return self.dots[i];
+
     def mutate(self):
         elite = sorted(self.dots, key=lambda x: -1 * x.fitness())
-        elite = elite[:200]
+        elite = elite[:10]
         new_population = []
 
-        for i in range(10):
-            new_population.append(elite[i]) # the best
-        # for e in elite:
-        #     new_population.append(e.clone())
-
+        sum = self.total_fitness()
         for i in range(999):
-            new_dot = np.random.choice(elite, p=self.build_weights(elite)).clone()
-            new_dot.mutate()
+            new_dot = self.select_parent(sum)
+            new_dot = new_dot.mutate()
             new_population.append(new_dot)
+
+        e = elite[0].clone(True)  # the best
+        new_population.append(e)
 
         self.empty()
         self.dots = new_population
         for dot in self.dots:
             self.add(dot)
 
-population = Population(5000)
+population = Population(3000)
 
 running = True
 while running:
@@ -180,7 +204,7 @@ while running:
     pygame.draw.circle(screen, (255,255,0), (450, 450), 10)
     pygame.draw.circle(screen, (0,0,255), (30, 30), 10)
     pygame.draw.rect(screen, (222,222,222), (0, 120, 300 ,20))
-    pygame.draw.rect(screen, (222,222,222), (300, 250, 200, 20))
+    pygame.draw.rect(screen, (222,222,222), (200, 250, 300, 20))
     population.draw(screen)
     pygame.display.flip()
     #pygame.time.delay(100)
