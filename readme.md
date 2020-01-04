@@ -1,3 +1,3 @@
 # Path finding genetic algorithm
 
-![preview](preview.gif | width=300)
+<img src="preview.gif" width="300">
