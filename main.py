@@ -7,7 +7,7 @@ from pygame.math import Vector2
 
 FPS = 60
 SIZE = 500
-MAX_MOVES = 500
+MAX_MOVES = 1500
 START = (30, 30)
 GOAL = (450, 450)
 
@@ -28,7 +28,7 @@ class Dot(pygame.sprite.Sprite):
         self.acc = Vector2(0.0, 0.0)
         self.moves = moves.copy()
 
-        self.image = pygame.Surface((2, 2), pygame.SRCALPHA)
+        self.image = pygame.Surface((4, 4), pygame.SRCALPHA)
         self.org_image = self.image
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
@@ -41,8 +41,8 @@ class Dot(pygame.sprite.Sprite):
         acc = self.moves[self.step]
         self.acc += acc
         self.vel += self.acc
-        if (self.vel.length() > 3):
-            self.vel.scale_to_length(3)
+        if (self.vel.length() > 2):
+            self.vel.scale_to_length(2)
         self.pos += self.vel
         self.step += 1
 
@@ -67,6 +67,16 @@ class Dot(pygame.sprite.Sprite):
             self.done = True
             self.dead = True
 
+        #(0, 120, 300, 20))
+        if self.pos.x >  0 and self.pos.x < 300  and \
+            self.pos.y > 120 and self.pos.y < 150:
+            self.dead = True
+
+        #(300, 250, 200, 20))
+        if self.pos.x > 300 and self.pos.x < 500  and \
+            self.pos.y > 250 and self.pos.y < 270:
+            self.dead = True
+
     def update(self, *args):
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
@@ -76,26 +86,26 @@ class Dot(pygame.sprite.Sprite):
             self.image.fill((0,0,0))
 
     def distance(self):
-        a = pow(self.pos.x - GOAL[0], 2)
-        b = pow(self.pos.y - GOAL[1], 2)
+        a = math.pow(self.pos.x - GOAL[0], 2)
+        b = math.pow(self.pos.y - GOAL[1], 2)
         return math.sqrt(a + b)
 
 
     def fitness(self):
         if self.done:
-            return 1 + 1.0 / self.step
+            return 1 + (1.0 / (self.step * self.step)) * 10000
         else:
-            return 1.0 / self.distance()
+            return (1 / (self.distance() * self.distance())) * 100
 
     def clone(self):
         return Dot(self.moves)
 
     def mutate(self):
-        factor = 0.001
+        factor = 0.01
         for i in range(len(self.moves)):
             if random.random() < factor:
                 r = random.randrange(0, 360)
-                v = Vector2(.001, 0)
+                v = Vector2(2, 0)
                 v = v.rotate(r)
                 self.moves[i] = v
 
@@ -103,13 +113,13 @@ class Dot(pygame.sprite.Sprite):
 class Population(pygame.sprite.Group):
     def __init__(self, size):
         self.dots = []
-        self.best = 2000
+        self.best = MAX_MOVES * 2
         pygame.sprite.Group.__init__(self)
         for i in range(size):
             moves = []
             for a in range(1000):
                 r = random.randrange(0, 360)
-                v = Vector2(.001, 0)
+                v = Vector2(2, 0)
                 v = v.rotate(r)
                 moves.append(v)
             dot = Dot(moves)
@@ -137,9 +147,11 @@ class Population(pygame.sprite.Group):
 
     def mutate(self):
         elite = sorted(self.dots, key=lambda x: -1 * x.fitness())
-        elite = elite[:300]
+        elite = elite[:200]
         new_population = []
-        new_population.append(elite[0]) # the best
+
+        for i in range(10):
+            new_population.append(elite[i]) # the best
         # for e in elite:
         #     new_population.append(e.clone())
 
@@ -153,7 +165,7 @@ class Population(pygame.sprite.Group):
         for dot in self.dots:
             self.add(dot)
 
-population = Population(1000)
+population = Population(5000)
 
 running = True
 while running:
@@ -167,6 +179,8 @@ while running:
     screen.fill((255, 255, 255))
     pygame.draw.circle(screen, (255,255,0), (450, 450), 10)
     pygame.draw.circle(screen, (0,0,255), (30, 30), 10)
+    pygame.draw.rect(screen, (222,222,222), (0, 120, 300 ,20))
+    pygame.draw.rect(screen, (222,222,222), (300, 250, 200, 20))
     population.draw(screen)
     pygame.display.flip()
     #pygame.time.delay(100)
